@@ -134,12 +134,12 @@ jobs:
 
             # Decrypt file
             - name: 'Decrypt File'
-               run: openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
+              run: openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
             
             # Authenticate dev hub
             - name: 'Authenticate Dev Hub'
-#              run: sf org login sfdx-url -f ./DEVHUB_SFDX_URL.txt -a devhub -d
-               run: sf org login jwt --username ${{ secrets.SF_USER }} --jwt-key-file server.key --client-id ${{ secrets.SF_CLIENT_ID }} --alias github-ci-dev-hub --set-default-dev-hub
+#             run: sf org login sfdx-url -f ./DEVHUB_SFDX_URL.txt -a devhub -d
+              run: sf org login jwt --username ${{ secrets.SF_USER }} --jwt-key-file server.key --client-id ${{ secrets.SF_CLIENT_ID }} --alias github-ci-dev-hub --set-default-dev-hub
 
             # Create scratch org
             - name: 'Create scratch org'
