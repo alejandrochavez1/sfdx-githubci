@@ -29,6 +29,7 @@ jobs:
     - name: 'Install Salesforce Cli'
       run: |
         node --version
+        npm audit fix --force
         npm install @salesforce/cli --global
         sf version
 
