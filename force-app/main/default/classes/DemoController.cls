@@ -5,7 +5,7 @@ public with sharing class DemoController {
     public DemoController() {}
 
     /**
-     * Set the contact for the page using the lastName parameter, if there is one - MODIFI2
+     * Set the contact for the page using the lastName parameter, if there is one - MODIFIcado
      */
     public DemoController(ApexPages.StandardController controller) {
         // Get the last name from the url
