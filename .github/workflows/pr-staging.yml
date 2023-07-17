@@ -29,10 +29,10 @@ jobs:
     - name: 'Install Salesforce Cli'
       run: |
         wget https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz
-        mkdir home/cli/sf
-        tar xJf sf-linux-x64.tar.xz -C home/cli/sf --strip-components 1
-        export PATH=home/cli/sf/bin:$PATH
-        PATH=home/cli/sf/bin:$PATH
+        mkdir cli/sf
+        tar xJf sf-linux-x64.tar.xz -C cli/sf --strip-components 1
+        export PATH=cli/sf/bin:$PATH
+        PATH=cli/sf/bin:$PATH
         sf version
 
     # Cache node_modules to speed up the process
