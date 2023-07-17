@@ -21,7 +21,7 @@ jobs:
 
     # Formatting and linting only runs on human-submitted PRs
     format-lint-lwc-tests:
-        if: "github.actor != 'trailheadapps-bot'"
+        # if: "github.actor != 'trailheadapps-bot'"
         runs-on: trailheadapps-Ubuntu
         steps:
             # Checkout the source code
@@ -66,47 +66,10 @@ jobs:
               with:
                   flags: LWC
 
-    # Auto merge Dependabot PRs for:
-    # - patch updates on prod dependencies
-    # - minor updates on dev dependencies
-    dependabot-auto-merge:
-        # Only run for Dependabot PRs
-        if: ${{ github.actor == 'dependabot[bot]' }}
-        runs-on: trailheadapps-Ubuntu
-        needs: format-lint-lwc-tests
-        permissions:
-            pull-requests: write
-            contents: write
-        steps:
-            - name: 'Fetch Dependabot metadata'
-              id: dependabot
-              uses: dependabot/fetch-metadata@v1
-
-            - name: 'Check auto merge conditions'
-              id: auto-merge
-              if: |
-                  (
-                    steps.dependabot.outputs.update-type == 'version-update:semver-patch' &&
-                    contains('direct:production,indirect:production', steps.dependabot.outputs.dependency-type)
-                  ) || (
-                    contains('version-update:semver-minor,version-update:semver-patch', steps.dependabot.outputs.update-type) &&
-                    contains('direct:development,indirect:development', steps.dependabot.outputs.dependency-type)
-                  )
-              run: echo "::notice ::auto-merge conditions satisfied"
-
-            - name: 'Approve and merge PR'
-              if: ${{ steps.auto-merge.conclusion == 'success' }}
-              run: |
-                  gh pr review --approve "$PR_URL"
-                  gh pr merge --auto --rebase "$PR_URL"
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  PR_URL: ${{ github.event.pull_request.html_url }}
-
     scratch-org-test:
         runs-on: trailheadapps-Ubuntu
         needs: format-lint-lwc-tests
-        if: ${{ github.actor != 'dependabot[bot]' }}
+        # if: ${{ github.actor != 'dependabot[bot]' }}
         steps:
             # Install Salesforce CLI
             - name: 'Install Salesforce CLI'
@@ -149,18 +112,6 @@ jobs:
             - name: 'Push source to scratch org'
               run: sf project deploy start
 
-            # Assign permissionset
-            - name: 'Assign permissionset to default user'
-              run: |
-                  sf org assign permset -n EasySpacesObjects
-                  sf org assign permset -n SpaceManagementApp
-
-            # Import sample data
-            - name: 'Import sample data'
-              run: |
-                  sf data tree import -p ./data/Plan1.json
-                  sf data tree import -p ./data/Plan2.json
-
             # Run Apex tests in scratch org
             - name: 'Run Apex tests'
               run: sf apex test run -c -r human -d ./tests/apex -w 20
@@ -175,57 +126,3 @@ jobs:
             - name: 'Delete scratch org'
               if: always()
               run: sf org delete scratch -p -o scratch-org
-
-    trigger-packaging:
-        runs-on: trailheadapps-Ubuntu
-        needs: scratch-org-test
-        steps:
-            # Checkout the source code
-            - name: 'Checkout source code'
-              uses: actions/checkout@v3
-
-            # Check for package changes using git diff
-            - name: 'Check for package changes'
-              id: checkForChanges
-              run: |
-                  git fetch origin $GITHUB_BASE_REF --depth=1
-                  changedPaths=$( git diff-tree --name-only origin/$GITHUB_BASE_REF $GITHUB_SHA )
-
-                  set +e
-                  changedPackages=()
-
-                  if [ $(echo "$changedPaths" | grep -c '^es-base-objects$') == 1 ]; then
-                      changedPackages+=( 'ESObjects' )
-                  fi
-
-                  if [ $(echo "$changedPaths" | grep -c '^es-base-styles$') == 1 ]; then
-                      changedPackages+=( 'ESBaseStylesLWC' )
-                  fi
-
-                  if [ $(echo "$changedPaths" | grep -c '^es-base-code$') == 1 ]; then
-                      changedPackages+=( 'ESBaseCodeLWC' )
-                  fi
-
-                  if [ $(echo "$changedPaths" | grep -c '^es-space-mgmt$') == 1 ]; then
-                      changedPackages+=( 'ESSpaceMgmtLWC' )
-                  fi
-
-                  echo "Changed packages (${#changedPackages[@]}):"
-                  for i in ${changedPackages[@]}; do
-                      echo "- $i"
-                  done
-
-                  changedPackagesJson='[]'
-                  if (( ${#changedPackages[@]} > 0 )); then
-                      changedPackagesJson=$(printf '%s\n' "${changedPackages[@]}" | jq -R . | jq -c -s .)
-                  fi
-                  echo "changes=$changedPackagesJson" >> $GITHUB_OUTPUT
-
-            # Trigger packaging PR workflow
-            - name: 'Trigger packaging PR workflow if needed'
-              uses: peter-evans/repository-dispatch@v2
-              if: ${{ steps.checkForChanges.outputs.changes != '[]' }}
-              with:
-                  token: ${{ secrets.BOT_ACCESS_TOKEN }}
-                  event-type: start-packaging-pr
-                  client-payload: '{ "ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "packageNames": ${{ steps.checkForChanges.outputs.changes }} }'                  
