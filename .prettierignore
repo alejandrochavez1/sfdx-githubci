@@ -8,8 +8,8 @@
 .localdevserver
 jsconfig.json
 coverage/
-package-lock.json
-package.json
-.github/
-config/
-force-app/main/default/pages/
+# package-lock.json
+# package.json
+# .github/
+# config/
+# force-app/main/default/pages/
