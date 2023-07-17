@@ -1,15 +1,15 @@
 {
-  "country": "US",
-  "edition": "Developer",
-  "features": ["Walkthroughs", "EnableSetPasswordInApi"],
-  "settings": {
-      "lightningExperienceSettings": {
-          "enableS1DesktopEnabled": true
-      },
-      "mobileSettings": {
-          "enableS1EncryptedStoragePref2": false
-      }
-  },
-  "orgName": "Your Company",
-  "adminEmail": "alejandro.chavez160@gmail.com"
+    "country": "US",
+    "edition": "Developer",
+    "features": ["Walkthroughs", "EnableSetPasswordInApi"],
+    "settings": {
+        "lightningExperienceSettings": {
+            "enableS1DesktopEnabled": true
+        },
+        "mobileSettings": {
+            "enableS1EncryptedStoragePref2": false
+        }
+    },
+    "orgName": "Your Company",
+    "adminEmail": "alejandro.chavez160@gmail.com"
 }
