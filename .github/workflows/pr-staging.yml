@@ -62,9 +62,7 @@ jobs:
     - name: 'Decrypt file'
       run: openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
     - name: 'Authorize'
-      run: |
-        echo username value ${{ secrets.USERNAME_STAGING }}
-        run: sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
+      run: sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
     - name: 'Convert Metadata'
       run: sfdx force:source:convert --rootdir=force-app --outputdir=convert
     - name: 'Run Test on Metadata'
