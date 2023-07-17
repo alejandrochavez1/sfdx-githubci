@@ -8,66 +8,232 @@ on:
   pull_request:
     branches: [ staging ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# Jobs to be executed
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    # Dummy job used to skip CI run on automated PRs
+    skip-ci:
+        if: "github.actor == 'trailheadapps-bot'"
+        runs-on: trailheadapps-Ubuntu
+        steps:
+            - name: Noop
+              run: |
+                  echo "Skipping CI run for automated PRs."
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-    # Checkout the source code
-    - name: 'Checkout source code'
-      uses: actions/checkout@v3
+    # Formatting and linting only runs on human-submitted PRs
+    format-lint-lwc-tests:
+        if: "github.actor != 'trailheadapps-bot'"
+        runs-on: trailheadapps-Ubuntu
+        steps:
+            # Checkout the source code
+            - name: 'Checkout source code'
+              uses: actions/checkout@v3
 
-    # Install Volta to enforce proper node and package manager versions
-    - name: 'Install Volta'
-      uses: volta-cli/action@v4
-      
-    # Install salesforce-cli with npm
-    - name: 'Install Salesforce Cli'
-      run: |
-        wget https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz
-        mkdir ~/cli-sf
-        tar xJf sf-linux-x64.tar.xz -C ~/cli-sf --strip-components 1
-        export PATH=~/cli-sf/bin:$PATH
-        PATH=~/cli-sf/bin:$PATH
-        sf version
+            # Install Volta to enforce proper node and package manager versions
+            - name: 'Install Volta'
+              uses: volta-cli/action@v4
 
-    # Cache node_modules to speed up the process
-    - name: 'Restore node_modules cache'
-      id: cache-npm
-      uses: actions/cache@v3
-      with:
-          path: node_modules
-          key: npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-              npm-${{ env.cache-name }}-
-              npm-
+            # Cache node_modules to speed up the process
+            - name: 'Restore node_modules cache'
+              id: cache-npm
+              uses: actions/cache@v3
+              with:
+                  path: node_modules
+                  key: npm-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: |
+                      npm-${{ env.cache-name }}-
+                      npm-
 
-    # Install npm dependencies for Prettier and Jest
-    - name: 'Install npm dependencies'
-      if: steps.cache-npm.outputs.cache-hit != 'true'
-      run: HUSKY=0 npm ci
+            # Install npm dependencies for Prettier and Jest
+            - name: 'Install npm dependencies'
+              if: steps.cache-npm.outputs.cache-hit != 'true'
+              run: HUSKY=0 npm ci
 
-    # Prettier formatting
-    - name: 'Code formatting verification with Prettier'
-      run: npm run prettier:verify
+            # Prettier formatting
+            - name: 'Code formatting verification with Prettier'
+              run: npm run prettier:verify
 
-    # Lint LWC / Aura
-    # - name: 'Lint Lightning Web Components / Aura Components'
-    #   run: npm run lint
+            # Lint LWC / Aura
+            - name: 'Lint Lightning Web Components / Aura Components'
+              run: npm run lint
 
-    # LWC unit tests
-    # - name: 'Unit test Lightning Web Components'
-    #   run: npm run test:unit:coverage
+            # LWC unit tests
+            - name: 'Unit test Lightning Web Components'
+              run: npm run test:unit:coverage
 
-    # Upload code coverage data
-    - name: 'Upload code coverage for LWC to Codecov.io'
-      uses: codecov/codecov-action@v3
-      with:
-          flags: LWC
+            # Upload code coverage data
+            - name: 'Upload code coverage for LWC to Codecov.io'
+              uses: codecov/codecov-action@v3
+              with:
+                  flags: LWC
+
+    # Auto merge Dependabot PRs for:
+    # - patch updates on prod dependencies
+    # - minor updates on dev dependencies
+    dependabot-auto-merge:
+        # Only run for Dependabot PRs
+        if: ${{ github.actor == 'dependabot[bot]' }}
+        runs-on: trailheadapps-Ubuntu
+        needs: format-lint-lwc-tests
+        permissions:
+            pull-requests: write
+            contents: write
+        steps:
+            - name: 'Fetch Dependabot metadata'
+              id: dependabot
+              uses: dependabot/fetch-metadata@v1
+
+            - name: 'Check auto merge conditions'
+              id: auto-merge
+              if: |
+                  (
+                    steps.dependabot.outputs.update-type == 'version-update:semver-patch' &&
+                    contains('direct:production,indirect:production', steps.dependabot.outputs.dependency-type)
+                  ) || (
+                    contains('version-update:semver-minor,version-update:semver-patch', steps.dependabot.outputs.update-type) &&
+                    contains('direct:development,indirect:development', steps.dependabot.outputs.dependency-type)
+                  )
+              run: echo "::notice ::auto-merge conditions satisfied"
+
+            - name: 'Approve and merge PR'
+              if: ${{ steps.auto-merge.conclusion == 'success' }}
+              run: |
+                  gh pr review --approve "$PR_URL"
+                  gh pr merge --auto --rebase "$PR_URL"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  PR_URL: ${{ github.event.pull_request.html_url }}
+
+    scratch-org-test:
+        runs-on: trailheadapps-Ubuntu
+        needs: format-lint-lwc-tests
+        if: ${{ github.actor != 'dependabot[bot]' }}
+        steps:
+            # Install Salesforce CLI
+            - name: 'Install Salesforce CLI'
+              run: |
+                  npm install @salesforce/cli --location=global
+                  nodeInstallPath=$(npm config get prefix)
+                  echo "$nodeInstallPath/bin" >> $GITHUB_PATH
+                  sf --version
+
+            # Checkout the source code
+            - name: 'Checkout source code'
+              uses: actions/checkout@v3
+              
+            # Authenticate dev hub
+            - name: 'Decrypt file'
+              run: openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
+            - name: 'Authorize'
+              run: sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
+    
+            # Store secret for dev hub
+            # - name: 'Populate auth file with DEVHUB_SFDX_URL secret'
+            #   shell: bash
+            #   run: |
+            #       echo ${{ secrets.DEVHUB_SFDX_URL }} > ./DEVHUB_SFDX_URL.txt
+            #       secretFileSize=$(wc -c "./DEVHUB_SFDX_URL.txt" | awk '{print $1}')
+            #       if [ $secretFileSize == 1 ]; then
+            #           echo "Missing DEVHUB_SFDX_URL secret. Is this workflow running on a fork?";
+            #           exit 1;
+            #       fi
+
+            # Authenticate dev hub
+            # - name: 'Authenticate Dev Hub'
+            #   run: sf org login sfdx-url -f ./DEVHUB_SFDX_URL.txt -a devhub -d
+
+            # Create scratch org
+            - name: 'Create scratch org'
+              run: sf org create scratch -f config/project-scratch-def.json -a scratch-org -d -y 1
+
+            # Deploy source to scratch org
+            - name: 'Push source to scratch org'
+              run: sf project deploy start
+
+            # Assign permissionset
+            - name: 'Assign permissionset to default user'
+              run: |
+                  sf org assign permset -n EasySpacesObjects
+                  sf org assign permset -n SpaceManagementApp
+
+            # Import sample data
+            - name: 'Import sample data'
+              run: |
+                  sf data tree import -p ./data/Plan1.json
+                  sf data tree import -p ./data/Plan2.json
+
+            # Run Apex tests in scratch org
+            - name: 'Run Apex tests'
+              run: sf apex test run -c -r human -d ./tests/apex -w 20
+
+            # Upload code coverage data
+            - name: 'Upload code coverage for Apex to Codecov.io'
+              uses: codecov/codecov-action@v3
+              with:
+                  flags: Apex
+
+            # Housekeeping
+            - name: 'Delete scratch org'
+              if: always()
+              run: sf org delete scratch -p -o scratch-org
+
+    trigger-packaging:
+        runs-on: trailheadapps-Ubuntu
+        needs: scratch-org-test
+        steps:
+            # Checkout the source code
+            - name: 'Checkout source code'
+              uses: actions/checkout@v3
+
+            # Check for package changes using git diff
+            - name: 'Check for package changes'
+              id: checkForChanges
+              run: |
+                  git fetch origin $GITHUB_BASE_REF --depth=1
+                  changedPaths=$( git diff-tree --name-only origin/$GITHUB_BASE_REF $GITHUB_SHA )
+
+                  set +e
+                  changedPackages=()
+
+                  if [ $(echo "$changedPaths" | grep -c '^es-base-objects$') == 1 ]; then
+                      changedPackages+=( 'ESObjects' )
+                  fi
+
+                  if [ $(echo "$changedPaths" | grep -c '^es-base-styles$') == 1 ]; then
+                      changedPackages+=( 'ESBaseStylesLWC' )
+                  fi
+
+                  if [ $(echo "$changedPaths" | grep -c '^es-base-code$') == 1 ]; then
+                      changedPackages+=( 'ESBaseCodeLWC' )
+                  fi
+
+                  if [ $(echo "$changedPaths" | grep -c '^es-space-mgmt$') == 1 ]; then
+                      changedPackages+=( 'ESSpaceMgmtLWC' )
+                  fi
+
+                  echo "Changed packages (${#changedPackages[@]}):"
+                  for i in ${changedPackages[@]}; do
+                      echo "- $i"
+                  done
+
+                  changedPackagesJson='[]'
+                  if (( ${#changedPackages[@]} > 0 )); then
+                      changedPackagesJson=$(printf '%s\n' "${changedPackages[@]}" | jq -R . | jq -c -s .)
+                  fi
+                  echo "changes=$changedPackagesJson" >> $GITHUB_OUTPUT
+
+            # Trigger packaging PR workflow
+            - name: 'Trigger packaging PR workflow if needed'
+              uses: peter-evans/repository-dispatch@v2
+              if: ${{ steps.checkForChanges.outputs.changes != '[]' }}
+              with:
+                  token: ${{ secrets.BOT_ACCESS_TOKEN }}
+                  event-type: start-packaging-pr
+                  client-payload: '{ "ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "packageNames": ${{ steps.checkForChanges.outputs.changes }} }'
+                  
+                  
+                  
+                  
+  
  # Runs a set of commands using the runners shell
     - name: 'Decrypt file'
       run: openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
