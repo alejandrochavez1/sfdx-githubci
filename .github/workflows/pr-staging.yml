@@ -25,14 +25,6 @@ jobs:
     - name: 'Install Volta'
       uses: volta-cli/action@v4
       
-    # Install salesforce-cli with npm
-    - name: 'Install Salesforce Cli'
-      run: |
-        node --version
-        npm audit fix --force
-        npm install @salesforce/cli --global
-        sf version
-
     # Cache node_modules to speed up the process
     - name: 'Restore node_modules cache'
       id: cache-npm
@@ -48,6 +40,13 @@ jobs:
     - name: 'Install npm dependencies'
       if: steps.cache-npm.outputs.cache-hit != 'true'
       run: HUSKY=0 npm ci
+
+    # Install salesforce-cli with npm
+    - name: 'Install Salesforce Cli'
+      run: |
+        node --version
+        npm install @salesforce/cli --global
+        sf version
 
     # Prettier formatting
     - name: 'Code formatting verification with Prettier'
