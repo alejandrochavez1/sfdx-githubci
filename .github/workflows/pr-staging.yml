@@ -27,7 +27,9 @@ jobs:
       
     # Install salesforce-cli with npm
     - name: 'Install Salesforce Cli'
-      run: npm install @salesforce/cli --global
+      run: |
+        npm install @salesforce/cli --global
+        echo sf version
 
     # Cache node_modules to speed up the process
     - name: 'Restore node_modules cache'
