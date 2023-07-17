@@ -64,7 +64,7 @@ jobs:
     - name: 'Authorize'
       run: |
         echo username value ${{ secrets.USERNAME_STAGING }}
-        sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
+        run: sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
     - name: 'Convert Metadata'
       run: sfdx force:source:convert --rootdir=force-app --outputdir=convert
     - name: 'Run Test on Metadata'
