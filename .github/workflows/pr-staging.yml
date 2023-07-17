@@ -24,6 +24,10 @@ jobs:
     # Install Volta to enforce proper node and package manager versions
     - name: 'Install Volta'
       uses: volta-cli/action@v4
+      
+    # Install salesforce-cli with npm
+    - name: 'Install Salesforce Cli'
+      run: npm install @salesforce/cli --global
 
     # Cache node_modules to speed up the process
     - name: 'Restore node_modules cache'
