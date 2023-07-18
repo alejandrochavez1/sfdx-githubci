@@ -80,7 +80,7 @@ jobs:
                 pwd
                 ls -l /usr/bin/bash
             - name: 'Authorize'
-              run: sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file /usr/bin/bash/server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
+              run: sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file /home/runner/work/sfdx-githubci/sfdx-githubci/server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
     
             # Store secret for dev hub
             # - name: 'Populate auth file with DEVHUB_SFDX_URL secret'
