@@ -74,7 +74,9 @@ jobs:
               
             # Authenticate dev hub
             - name: 'Decrypt file'
-              run: openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
+              run: |
+                openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
+                ls -l /usr/bin/bash
             - name: 'Authorize'
               run: sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
     
