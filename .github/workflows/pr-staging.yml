@@ -77,6 +77,7 @@ jobs:
               run: |
                 openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
                 ls
+                ls
                 pwd
                 sf org login jwt --help
                 ls -l /usr/bin/bash
