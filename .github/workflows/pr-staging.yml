@@ -78,6 +78,7 @@ jobs:
                 openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
                 ls
                 pwd
+                sf org login jwt --help
                 ls -l /usr/bin/bash
             - name: 'Authorize'
               run: sf org login jwt --username ${{ secrets.USERNAME }} --jwt-key-file /home/runner/work/sfdx-githubci/sfdx-githubci/server.key --client-id ${{ secrets.CONSUMER_KEY }} --alias github-ci-dev-hub --set-default-dev-hub
