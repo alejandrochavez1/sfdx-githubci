@@ -75,7 +75,7 @@ jobs:
             # Authenticate dev hub
             - name: 'Decrypt file'
               run: |
-                openssl rsa -passin pass:${{ secrets.SF_DECRYPTION_KEY }} -in assets/server.pass.key -out server.key
+                openssl enc -d -aes-256-cbc -salt -pbkdf2 -iter 100000 -in assets/server.key.enc -out server.key -k ${{ secrets.SF_DECRYPTION_KEY }}
                 ls
                 ls
                 pwd
